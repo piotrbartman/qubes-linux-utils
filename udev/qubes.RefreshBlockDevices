@@ -1,7 +1,8 @@
 #!/bin/sh
 
-# Refresh `busy` attribute for a block device subtree by re-triggering udev
-# change events. Called after detaching a block device.
+# Refresh exported devices, by re-triggering udev change events.
+# Called after exporting a device: the partitions of an exported block device
+# are removed from QubesDB.
 #
 # stdin: device node path relative to /dev (e.g. "sda" or "mapper/dmroot").
 
@@ -11,6 +12,19 @@ case "$untrusted_name" in
     ""|-*|*[!a-zA-Z0-9/_-]*) exit 1 ;;
 esac
 name="$untrusted_name"
+
+# Wait (3s max) for vbd to appear; attach is async and no uevent is sent
+# to fix an early recompute. On timeout recompute anyway: attach likely
+# failed; if not, partitions stay listed until the next block event.
+dev_hex=$(stat -c %t:%T "/dev/$name" 2>/dev/null)
+i=0
+while [ "$i" -lt 30 ] && [ -n "$dev_hex" ] && [ "$dev_hex" != 0:0 ]; do
+    grep -qxF "$dev_hex" \
+        /sys/bus/xen-backend/drivers/vbd/vbd-*/physical_device 2>/dev/null \
+        && break
+    sleep 0.1
+    i=$((i + 1))
+done
 
 for dev in "/dev/$name" "/dev/$name"?*; do
     [ -b "$dev" ] && udevadm trigger --action=change "$dev"

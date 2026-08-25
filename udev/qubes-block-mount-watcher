@@ -1,0 +1,75 @@
+#!/usr/bin/python3
+#
+# The Qubes OS Project, https://www.qubes-os.org
+#
+# Copyright (C) 2026  Piotr Bartman-Szwarc <prbartman@invisiblethingslab.com>
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301,
+# USA.
+
+"""
+Re-evaluate exported block devices when something is (un)mounted.
+
+Mounting a filesystem does not generate a block uevent.
+Note: Swap is not covered.
+"""
+
+import os
+import select
+import subprocess
+
+MOUNTINFO = "/proc/self/mountinfo"
+
+
+def get_mounted(mountinfo) -> set[str]:
+    """Returns numbers ("major:minor") of currently mounted devices."""
+    mountinfo.seek(0)
+    result = set()
+    for line in mountinfo.read().splitlines():
+        fields = line.split()
+        # 3rd field is the number
+        if len(fields) > 2:
+            result.add(fields[2])
+    return result
+
+
+def refresh(device: str):
+    """Re-run the udev rules for a device."""
+    syspath = "/sys/dev/block/" + device
+    if not os.path.isdir(syspath):
+        # virtual
+        return
+    subprocess.call(["udevadm", "trigger", "--action=change", syspath])
+
+
+def main():
+    with open(MOUNTINFO, "r", encoding="ascii", errors="replace") as mountinfo:
+        poller = select.poll()
+        poller.register(mountinfo, select.POLLPRI | select.POLLERR)
+
+        previous = get_mounted(mountinfo)
+        for dev in previous:
+            refresh(dev)
+
+        while True:
+            poller.poll()
+            current = get_mounted(mountinfo)
+            for dev in current.symmetric_difference(previous):
+                refresh(dev)
+            previous = current
+
+
+if __name__ == "__main__":
+    main()
