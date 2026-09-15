@@ -1,6 +1,6 @@
 #!/bin/bash
 
-shopt -s nullglob
+shopt -s nullglob globstar
 
 
 export LC_CTYPE=en_US.UTF-8
@@ -17,10 +17,18 @@ USB_PARENT_SYSPATH=""
 if echo "$DEVPATH" | grep -q '/host'; then
     # DEVPATH for a USB-connected block device ends with:
     #   .../<usb-dev>/<usb-iface>/host.../...
-    # Strip from /host onward to get the USB interface path, then go up one
-    # level to get the USB device directory name (e.g. "1-1", not "1-1:1.0").
-    USB_PARENT_SYSPATH=$(dirname "$(sed 's|/host.*$||' <<< "/sys$DEVPATH")")
-    USB_PARENT=$(basename "$USB_PARENT_SYSPATH")
+    # Walk up /sys to find the USB device directory name matching bus-port
+    # format (e.g. "1-1", not "1-1:1.0").
+    walk="/sys$DEVPATH"
+    while [ -n "$walk" ] && [ "$walk" != "/" ] && [ "$walk" != "/sys" ]; do
+        walk=${walk%/*}
+        candidate=${walk##*/}
+        if [[ "$candidate" =~ ^[0-9]+-[0-9]+(\.[0-9]+)*$ ]]; then
+            USB_PARENT_SYSPATH=$walk
+            USB_PARENT=$candidate
+            break
+        fi
+    done
 fi
 
 xs_remove() {
@@ -83,11 +91,12 @@ refresh_another() {
 usb_parent_still_in_use() {
     [ -n "$USB_PARENT_SYSPATH" ] || return 1
     local blockdev part
-    for blockdev in "$USB_PARENT_SYSPATH"/*/host*/target*/*/block/*; do
+    # The interface-to-host depth varies by driver
+    for blockdev in "$USB_PARENT_SYSPATH"/**/block/*; do
         if is_used "$blockdev"; then
             return 0
         fi
-        for part in "$blockdev/$(basename "$blockdev")"*; do
+        for part in "$blockdev/${blockdev##*/}"*; do
             if [ -d "$part" ] && is_used "$part"; then
                 return 0
             fi
