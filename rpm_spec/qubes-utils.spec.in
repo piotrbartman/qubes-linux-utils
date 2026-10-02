@@ -159,6 +159,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/lib/systemd/system-preset/75-qubes-block-mount-watcher.preset
 %dir %_includedir/qubes
 /etc/xen/scripts/qubes-block
+/etc/qubes-rpc/qubes.RefreshBlockDevices
 
 %files -n python%{python3_pkgversion}-qubesimgconverter
 %dir %{python3_sitelib}/qubesimgconverter
