@@ -16,6 +16,7 @@ install:
 	mkdir -p $(DESTDIR)$(SYSLIBDIR)/udev/rules.d
 	cp udev-qubes-block.rules $(DESTDIR)$(SYSLIBDIR)/udev/rules.d/99-qubes-block.rules
 	cp udev-qubes-usb.rules $(DESTDIR)$(SYSLIBDIR)/udev/rules.d/99-qubes-usb.rules
+	cp udev-qubes-vbd.rules $(DESTDIR)$(SYSLIBDIR)/udev/rules.d/99-qubes-vbd.rules
 	cp udev-qubes-misc.rules $(DESTDIR)$(SYSLIBDIR)/udev/rules.d/99-qubes-misc.rules
 	mkdir -p $(DESTDIR)$(SYSLIBDIR)/tmpfiles.d
 	cp xen-devices-qubes.conf $(DESTDIR)$(SYSLIBDIR)/tmpfiles.d/xen-devices-qubes.conf
@@ -40,3 +41,6 @@ else
 	install -m 0644 qubes-block-mount-watcher.preset \
 		$(DESTDIR)/usr/lib/systemd/system-preset/75-qubes-block-mount-watcher.preset
 endif
+
+	mkdir -p $(DESTDIR)/etc/qubes-rpc
+	cp qubes.RefreshBlockDevices $(DESTDIR)/etc/qubes-rpc
