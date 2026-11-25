@@ -250,10 +250,13 @@ if [ -n "$DM_NAME" ]; then
     DESC="$DM_NAME"
 fi
 
+parent_devclass=
 if [ -f /sys$DEVPATH/partition ]; then
     parent=$(basename "$(dirname "$DEVPATH")")
+    parent_devclass=block
 elif [ -n "$USB_PARENT" ]; then
     parent="$USB_PARENT"
+    parent_devclass=usb
 fi
 
 if [ -n "$USED" ]; then
@@ -268,6 +271,7 @@ qubesdb-write \
     "$QDB_KEY/size" "$SIZE" \
     "$QDB_KEY/mode" "$MODE" \
     "$QDB_KEY/parent" "$parent" \
+    "$QDB_KEY/parent_devclass" "$parent_devclass" \
     "$QDB_KEY/used" "$USED_VALUE" \
     /qubes-block-devices ''
 
